@@ -1,5 +1,6 @@
 import { Logger } from '@nestjs/common';
 import type { GeocodeHit, Geocoder } from './geocoder.js';
+import { formatJapaneseAddress } from './japanese-address.js';
 
 interface NominatimReverseResponse {
   display_name?: string;
@@ -99,21 +100,4 @@ export class NominatimGeocoder implements Geocoder {
     }
     return (await res.json()) as T;
   }
-}
-
-/**
- * Nominatim の display_name は「番地, 町, 区, 都道府県, 郵便番号, 日本」と逆順なので、
- * 日本の住所表記（都道府県 → 市区町村 → 町名）に組み立て直す。
- */
-function formatJapaneseAddress(a: Record<string, string>): string | null {
-  if (a.country_code && a.country_code !== 'jp') return null;
-  const parts = [
-    a.province ?? a.state,
-    a.city ?? a.town ?? a.village ?? a.county,
-    a.city_district ?? a.suburb,
-    a.quarter,
-    a.neighbourhood,
-  ].filter((p): p is string => Boolean(p));
-  const unique = parts.filter((p, i) => parts.indexOf(p) === i);
-  return unique.length > 0 ? unique.join('') : null;
 }
