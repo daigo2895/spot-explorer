@@ -5,12 +5,15 @@ import { useEffect, useRef } from "react";
 import { Circle, CircleMarker, MapContainer, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import type { CircleMarker as LeafletCircleMarker, LatLngBoundsExpression } from "leaflet";
 import type { Spot } from "@/lib/api";
+import { categoryColor, type CategoryColorMap } from "@/lib/categoryColors";
 import { formatDistance, type LatLng } from "@/lib/geo";
 
 interface Props {
   initialCenter: LatLng | null;
   bounds: { south: number; west: number; north: number; east: number } | null;
   spots: Spot[];
+  /** カテゴリごとのマーカー色（凡例のチップと同じ色） */
+  colors: CategoryColorMap;
   searchCenter: LatLng | null;
   radiusKm: number;
   selectedId: number | null;
@@ -35,7 +38,17 @@ function MapEvents({ onMove, onMoveEnd }: Pick<Props, "onMove" | "onMoveEnd">) {
   return null;
 }
 
-function SpotMarker({ spot, selected, onSelect }: { spot: Spot; selected: boolean; onSelect: Props["onSelect"] }) {
+function SpotMarker({
+  spot,
+  color,
+  selected,
+  onSelect,
+}: {
+  spot: Spot;
+  color: string;
+  selected: boolean;
+  onSelect: Props["onSelect"];
+}) {
   const ref = useRef<LeafletCircleMarker>(null);
   const map = useMap();
 
@@ -54,7 +67,7 @@ function SpotMarker({ spot, selected, onSelect }: { spot: Spot; selected: boolea
       pathOptions={{
         color: selected ? "#1d4ed8" : "#ffffff",
         weight: 2,
-        fillColor: selected ? "#2563eb" : "#ef4444",
+        fillColor: selected ? "#2563eb" : color,
         fillOpacity: 0.9,
       }}
       eventHandlers={{ click: () => onSelect(spot.id), popupclose: () => selected && onSelect(null) }}
@@ -71,7 +84,7 @@ function SpotMarker({ spot, selected, onSelect }: { spot: Spot; selected: boolea
   );
 }
 
-export function SpotMap({ initialCenter, bounds, spots, searchCenter, radiusKm, selectedId, onSelect, onMove, onMoveEnd }: Props) {
+export function SpotMap({ initialCenter, bounds, spots, colors, searchCenter, radiusKm, selectedId, onSelect, onMove, onMoveEnd }: Props) {
   // 初期表示：スポットが密集している地点 → データ全体の範囲 → 既定の地点 の順に使う
   const initial: { bounds: LatLngBoundsExpression } | { center: [number, number]; zoom: number } = initialCenter
     ? { center: [initialCenter.lat, initialCenter.lng], zoom: 12 }
@@ -96,7 +109,13 @@ export function SpotMap({ initialCenter, bounds, spots, searchCenter, radiusKm, 
           />
         )}
         {spots.map((spot) => (
-          <SpotMarker key={spot.id} spot={spot} selected={spot.id === selectedId} onSelect={onSelect} />
+          <SpotMarker
+            key={spot.id}
+            spot={spot}
+            color={categoryColor(colors, spot.category)}
+            selected={spot.id === selectedId}
+            onSelect={onSelect}
+          />
         ))}
       </MapContainer>
       {/* 地図の中心を示す十字。住所表示・検索の基準点 */}

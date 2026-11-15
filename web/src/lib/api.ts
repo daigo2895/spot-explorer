@@ -20,10 +20,17 @@ export interface SearchResult {
   items: Spot[];
 }
 
+export interface CategoryCount {
+  name: string;
+  count: number;
+}
+
 export interface SpotsSummary {
   count: number;
   bounds: { south: number; west: number; north: number; east: number } | null;
   initialCenter: LatLng | null;
+  /** カテゴリごとの件数（多い順） */
+  categories: CategoryCount[];
 }
 
 export interface ReverseGeocodeResult {
@@ -41,10 +48,17 @@ async function getJson<T>(path: string, params: Record<string, string | number>,
 }
 
 export const api = {
-  searchSpots: (center: LatLng, radiusKm: number, signal?: AbortSignal) =>
+  searchSpots: (center: LatLng, radiusKm: number, categories: string[], signal?: AbortSignal) =>
     getJson<SearchResult>(
       "/spots",
-      { lat: center.lat, lng: center.lng, radiusKm, limit: 1000 },
+      {
+        lat: center.lat,
+        lng: center.lng,
+        radiusKm,
+        limit: 1000,
+        // 空のときはパラメータ自体を送らない（全カテゴリ）
+        ...(categories.length > 0 ? { categories: categories.join(",") } : {}),
+      },
       signal,
     ),
   summary: (signal?: AbortSignal) => getJson<SpotsSummary>("/spots/summary", {}, signal),

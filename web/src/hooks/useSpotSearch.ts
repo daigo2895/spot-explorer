@@ -22,10 +22,20 @@ export interface SpotSearchState {
 /**
  * 取得済みの結果（中心C・半径R）が、新しい検索範囲（中心c・半径r）を完全に含むなら
  * その結果を使い回せる。条件: 距離(C, c) + r <= R
+ * カテゴリの絞り込みは API 側で行っているため、取得時と同じ選択のときだけ再利用する
  */
-function canReuse(prev: SearchResult, center: LatLng, radiusKm: number): boolean {
+function canReuse(prev: FetchedResult, center: LatLng, radiusKm: number, categoryKey: string): boolean {
   const truncated = prev.total > prev.items.length;
-  return !truncated && distanceM(prev.center, center) + radiusKm * 1000 <= prev.radiusKm * 1000;
+  return (
+    !truncated &&
+    prev.categoryKey === categoryKey &&
+    distanceM(prev.center, center) + radiusKm * 1000 <= prev.radiusKm * 1000
+  );
+}
+
+interface FetchedResult extends SearchResult {
+  /** 取得時に選択していたカテゴリ（ソート済み・カンマ区切り） */
+  categoryKey: string;
 }
 
 /**
@@ -47,7 +57,11 @@ function withinRadius(items: Spot[], radiusKm: number): Spot[] {
   return items.filter((s) => s.distanceM <= radiusKm * 1000);
 }
 
-export function useSpotSearch(center: LatLng | null, radiusKm: number): SpotSearchState & { retry: () => void } {
+export function useSpotSearch(
+  center: LatLng | null,
+  radiusKm: number,
+  categories: string[],
+): SpotSearchState & { retry: () => void } {
   const [state, setState] = useState<SpotSearchState>({
     status: "idle",
     spots: [],
@@ -55,13 +69,15 @@ export function useSpotSearch(center: LatLng | null, radiusKm: number): SpotSear
     error: null,
   });
   const [retryToken, setRetryToken] = useState(0);
-  const lastResult = useRef<SearchResult | null>(null);
+  const lastResult = useRef<FetchedResult | null>(null);
+  // 配列の参照ではなく内容で比較できるよう、文字列のキーにする（useEffect の依存にも使う）
+  const categoryKey = [...categories].sort().join(",");
 
   useEffect(() => {
     if (!center) return;
 
     const prev = lastResult.current;
-    if (prev && canReuse(prev, center, radiusKm)) {
+    if (prev && canReuse(prev, center, radiusKm, categoryKey)) {
       setState({ status: "success", spots: filterWithin(prev.items, center, radiusKm), fromCache: true, error: null });
       return;
     }
@@ -73,8 +89,8 @@ export function useSpotSearch(center: LatLng | null, radiusKm: number): SpotSear
     const timer = setTimeout(async () => {
       try {
         const fetchRadius = Math.min(MAX_RADIUS_KM, radiusKm * PREFETCH_FACTOR);
-        const result = await api.searchSpots(center, fetchRadius, controller.signal);
-        lastResult.current = result;
+        const result = await api.searchSpots(center, fetchRadius, categoryKey ? categoryKey.split(",") : [], controller.signal);
+        lastResult.current = { ...result, categoryKey };
         setState({ status: "success", spots: withinRadius(result.items, radiusKm), fromCache: false, error: null });
       } catch (e) {
         if (controller.signal.aborted) return;
@@ -87,7 +103,7 @@ export function useSpotSearch(center: LatLng | null, radiusKm: number): SpotSear
       clearTimeout(timer);
       controller.abort();
     };
-  }, [center, radiusKm, retryToken]);
+  }, [center, radiusKm, categoryKey, retryToken]);
 
   return { ...state, retry: () => setRetryToken((t) => t + 1) };
 }

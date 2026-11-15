@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useCenterAddress } from "@/hooks/useCenterAddress";
 import { useSpotSearch } from "@/hooks/useSpotSearch";
 import { api, type SpotsSummary } from "@/lib/api";
+import { buildCategoryColors } from "@/lib/categoryColors";
 import type { LatLng } from "@/lib/geo";
 import { AddressBar } from "./AddressBar";
+import { CategoryFilter } from "./CategoryFilter";
 import { RadiusControl } from "./RadiusControl";
 import { SpotList } from "./SpotList";
 import { SpotMap } from "./SpotMap";
@@ -17,6 +19,8 @@ export function SpotExplorer() {
   /** 地図の移動が止まった時点の中心（スポット検索用） */
   const [searchCenter, setSearchCenter] = useState<LatLng | null>(null);
   const [radiusKm, setRadiusKm] = useState(5);
+  /** 絞り込むカテゴリ。空なら全カテゴリ */
+  const [categories, setCategories] = useState<string[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [isMoving, setIsMoving] = useState(false);
 
@@ -29,8 +33,10 @@ export function SpotExplorer() {
     return () => controller.abort();
   }, []);
 
-  const search = useSpotSearch(searchCenter, radiusKm);
+  const search = useSpotSearch(searchCenter, radiusKm, categories);
   const address = useCenterAddress(liveCenter);
+  const allCategories = useMemo(() => (summary && summary !== "error" ? summary.categories : []), [summary]);
+  const colors = useMemo(() => buildCategoryColors(allCategories), [allCategories]);
 
   if (summary === null) {
     return <div className="flex h-full items-center justify-center text-slate-500">データを読み込み中…</div>;
@@ -47,10 +53,14 @@ export function SpotExplorer() {
           <div className="mt-3">
             <RadiusControl value={radiusKm} onChange={setRadiusKm} />
           </div>
+          <div className="mt-3">
+            <CategoryFilter categories={allCategories} colors={colors} selected={categories} onChange={setCategories} />
+          </div>
         </header>
         <SpotList
           state={search}
           radiusKm={radiusKm}
+          colors={colors}
           selectedId={selectedId}
           onSelect={setSelectedId}
           onExpandRadius={setRadiusKm}
@@ -62,6 +72,7 @@ export function SpotExplorer() {
           initialCenter={summary === "error" ? null : summary.initialCenter}
           bounds={summary === "error" ? null : summary.bounds}
           spots={search.spots}
+          colors={colors}
           searchCenter={searchCenter}
           radiusKm={radiusKm}
           selectedId={selectedId}

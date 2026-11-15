@@ -1,17 +1,19 @@
 import { useEffect, useRef } from "react";
 import type { SpotSearchState } from "@/hooks/useSpotSearch";
+import { categoryColor, type CategoryColorMap } from "@/lib/categoryColors";
 import { formatDistance } from "@/lib/geo";
 import { MAX_RADIUS_KM } from "./RadiusControl";
 
 interface Props {
   state: SpotSearchState & { retry: () => void };
   radiusKm: number;
+  colors: CategoryColorMap;
   selectedId: number | null;
   onSelect: (id: number | null) => void;
   onExpandRadius: (km: number) => void;
 }
 
-export function SpotList({ state, radiusKm, selectedId, onSelect, onExpandRadius }: Props) {
+export function SpotList({ state, radiusKm, colors, selectedId, onSelect, onExpandRadius }: Props) {
   const listRef = useRef<HTMLUListElement>(null);
 
   // 地図のマーカーを選んだら、一覧の該当行までスクロールする
@@ -45,7 +47,7 @@ export function SpotList({ state, radiusKm, selectedId, onSelect, onExpandRadius
       {state.status === "success" && state.spots.length === 0 && (
         <div className="m-4 rounded bg-slate-100 p-4 text-center text-sm text-slate-600">
           <p>半径 {radiusKm} km 以内にスポットはありません。</p>
-          <p className="mt-1 text-xs">地図を動かすか、検索半径を広げてください。</p>
+          <p className="mt-1 text-xs">地図を動かすか、検索半径を広げるか、カテゴリの絞り込みを解除してください。</p>
           {radiusKm < MAX_RADIUS_KM && (
             <button
               type="button"
@@ -78,7 +80,13 @@ export function SpotList({ state, radiusKm, selectedId, onSelect, onExpandRadius
               {(spot.category || spot.address) && (
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
                   {spot.category && (
-                    <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-700">{spot.category}</span>
+                    <span className="flex items-center gap-1 rounded bg-slate-100 px-1.5 py-0.5 text-slate-700">
+                      <span
+                        className="inline-block h-2 w-2 rounded-full"
+                        style={{ backgroundColor: categoryColor(colors, spot.category) }}
+                      />
+                      {spot.category}
+                    </span>
                   )}
                   {spot.address && <span className="truncate">{spot.address}</span>}
                 </div>
