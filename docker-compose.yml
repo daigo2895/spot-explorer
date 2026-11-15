@@ -30,7 +30,8 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       DB_NAME: ${DB_NAME:-spots}
       PORT: 3001
-      CORS_ORIGIN: http://localhost:3000
+      # ブラウザで 127.0.0.1 で開いた場合も API を呼べるように、両方を許可する（カンマ区切り）
+      CORS_ORIGIN: http://localhost:3000,http://127.0.0.1:3000
       SEED_FILE: seed/spots.csv
     ports:
       - "3001:3001"

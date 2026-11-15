@@ -6,7 +6,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix('api');
   app.enableCors({
-    origin: (process.env.CORS_ORIGIN ?? 'http://localhost:3000').split(','),
+    origin: (process.env.CORS_ORIGIN ?? 'http://localhost:3000,http://127.0.0.1:3000').split(','),
   });
   // クエリ文字列を DTO の型（number）に変換し、範囲外の値は 400 で弾く
   app.useGlobalPipes(
