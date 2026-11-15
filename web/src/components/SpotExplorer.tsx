@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useCenterAddress } from "@/hooks/useCenterAddress";
 import { useSpotSearch } from "@/hooks/useSpotSearch";
+import { useCopyUrl, useUrlState } from "@/hooks/useUrlState";
 import { api, type SpotsSummary } from "@/lib/api";
 import { buildCategoryColors } from "@/lib/categoryColors";
 import type { LatLng } from "@/lib/geo";
@@ -14,14 +15,18 @@ import { SpotList } from "./SpotList";
 import { SpotMap } from "./SpotMap";
 
 export function SpotExplorer() {
+  /** URL に保持した検索条件（開いたときの初期値と、変更時の書き戻し） */
+  const { initial: urlInitial, sync: syncUrl } = useUrlState();
+  const { copied, copy } = useCopyUrl();
   const [summary, setSummary] = useState<SpotsSummary | null | "error">(null);
   /** 地図を動かしている最中も更新される中心（住所表示用） */
   const [liveCenter, setLiveCenter] = useState<LatLng | null>(null);
   /** 地図の移動が止まった時点の中心（スポット検索用） */
   const [searchCenter, setSearchCenter] = useState<LatLng | null>(null);
-  const [radiusKm, setRadiusKm] = useState(5);
+  const [zoom, setZoom] = useState<number | null>(null);
+  const [radiusKm, setRadiusKm] = useState(urlInitial?.radiusKm ?? 5);
   /** 絞り込むカテゴリ。空なら全カテゴリ */
-  const [categories, setCategories] = useState<string[]>([]);
+  const [categories, setCategories] = useState<string[]>(urlInitial?.categories ?? []);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [isMoving, setIsMoving] = useState(false);
   /** 地名検索・現在地ボタンからの移動指示 */
@@ -38,6 +43,12 @@ export function SpotExplorer() {
 
   const search = useSpotSearch(searchCenter, radiusKm, categories);
   const address = useCenterAddress(liveCenter);
+
+  // 検索条件が変わるたびに URL を置き換える（移動中は書かず、止まった時点の値を使う）
+  useEffect(() => {
+    if (!searchCenter || zoom === null) return;
+    syncUrl({ center: searchCenter, zoom, radiusKm, categories });
+  }, [syncUrl, searchCenter, zoom, radiusKm, categories]);
   const allCategories = useMemo(() => (summary && summary !== "error" ? summary.categories : []), [summary]);
   const colors = useMemo(() => buildCategoryColors(allCategories), [allCategories]);
 
@@ -49,7 +60,17 @@ export function SpotExplorer() {
     <div className="flex h-full flex-col md:flex-row">
       <aside className="order-2 flex min-h-0 flex-1 flex-col border-slate-200 bg-white md:order-1 md:w-96 md:flex-none md:border-r">
         <header className="border-b border-slate-200 p-4">
-          <h1 className="text-lg font-bold">スポット探索マップ</h1>
+          <div className="flex items-center justify-between gap-2">
+            <h1 className="text-lg font-bold">スポット探索マップ</h1>
+            <button
+              type="button"
+              onClick={copy}
+              title="現在の地図の位置・半径・カテゴリを含むリンクをコピー"
+              className="shrink-0 rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100"
+            >
+              {copied === "copied" ? "コピーしました" : copied === "error" ? "コピーできません" : "リンクをコピー"}
+            </button>
+          </div>
           <p className="mt-1 text-xs text-slate-500">
             地図を動かすと、中心（＋）から半径 {radiusKm} km 以内のスポットを表示します
           </p>
@@ -75,6 +96,7 @@ export function SpotExplorer() {
 
       <main className="relative order-1 h-[55vh] md:order-2 md:h-auto md:flex-1">
         <SpotMap
+          initialView={urlInitial ? { center: urlInitial.center, zoom: urlInitial.zoom } : null}
           initialCenter={summary === "error" ? null : summary.initialCenter}
           bounds={summary === "error" ? null : summary.bounds}
           spots={search.spots}
@@ -87,10 +109,11 @@ export function SpotExplorer() {
             setIsMoving(true);
             setLiveCenter(c);
           }}
-          onMoveEnd={(c) => {
+          onMoveEnd={(c, z) => {
             setIsMoving(false);
             setLiveCenter(c);
             setSearchCenter(c);
+            setZoom(z);
           }}
           target={target}
         />

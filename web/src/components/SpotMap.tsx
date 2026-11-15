@@ -10,6 +10,8 @@ import { formatDistance, type LatLng } from "@/lib/geo";
 import type { MapTarget } from "./PlaceSearch";
 
 interface Props {
+  /** URL に保存されていた表示位置。あれば initialCenter より優先する */
+  initialView: { center: LatLng; zoom: number | null } | null;
   initialCenter: LatLng | null;
   bounds: { south: number; west: number; north: number; east: number } | null;
   spots: Spot[];
@@ -20,7 +22,7 @@ interface Props {
   selectedId: number | null;
   onSelect: (id: number | null) => void;
   onMove: (center: LatLng) => void;
-  onMoveEnd: (center: LatLng) => void;
+  onMoveEnd: (center: LatLng, zoom: number) => void;
   /** 地名検索・現在地ボタンからの移動指示。同じ場所を2回選んでも動くよう、連番つき */
   target: (MapTarget & { seq: number }) | null;
 }
@@ -54,11 +56,11 @@ const FALLBACK_CENTER: [number, number] = [35.681236, 139.767125];
 function MapEvents({ onMove, onMoveEnd }: Pick<Props, "onMove" | "onMoveEnd">) {
   const map = useMapEvents({
     move: () => onMove(map.getCenter()),
-    moveend: () => onMoveEnd(map.getCenter()),
+    moveend: () => onMoveEnd(map.getCenter(), map.getZoom()),
   });
   // 初期表示時にも1回検索する
   useEffect(() => {
-    onMoveEnd(map.getCenter());
+    onMoveEnd(map.getCenter(), map.getZoom());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map]);
   return null;
@@ -110,7 +112,11 @@ function SpotMarker({
   );
 }
 
+/** 初期表示の既定のズーム。半径 5 km の円が収まる程度 */
+const DEFAULT_ZOOM = 12;
+
 export function SpotMap({
+  initialView,
   initialCenter,
   bounds,
   spots,
@@ -123,12 +129,14 @@ export function SpotMap({
   onMoveEnd,
   target,
 }: Props) {
-  // 初期表示：スポットが密集している地点 → データ全体の範囲 → 既定の地点 の順に使う
-  const initial: { bounds: LatLngBoundsExpression } | { center: [number, number]; zoom: number } = initialCenter
-    ? { center: [initialCenter.lat, initialCenter.lng], zoom: 12 }
-    : bounds
-      ? { bounds: [[bounds.south, bounds.west], [bounds.north, bounds.east]] }
-      : { center: FALLBACK_CENTER, zoom: 12 };
+  // 初期表示：URL の表示位置 → スポットが密集している地点 → データ全体の範囲 → 既定の地点 の順に使う
+  const initial: { bounds: LatLngBoundsExpression } | { center: [number, number]; zoom: number } = initialView
+    ? { center: [initialView.center.lat, initialView.center.lng], zoom: initialView.zoom ?? DEFAULT_ZOOM }
+    : initialCenter
+      ? { center: [initialCenter.lat, initialCenter.lng], zoom: DEFAULT_ZOOM }
+      : bounds
+        ? { bounds: [[bounds.south, bounds.west], [bounds.north, bounds.east]] }
+        : { center: FALLBACK_CENTER, zoom: DEFAULT_ZOOM };
 
   return (
     <div className="relative h-full w-full">
