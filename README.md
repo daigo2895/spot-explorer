@@ -17,10 +17,15 @@
 
 ### 必要なもの
 
-- Docker Desktop（Docker Compose v2.24 以降）
+- Docker と Docker Compose v2.24 以降（Docker Desktop、または Docker Engine + Compose プラグイン）
 - Git
 
 Apple シリコンの Mac では、DB のイメージ（amd64 版のみ）をエミュレーションで動かすため、初回起動に時間がかかることがあります。
+
+動作確認した環境：
+
+- Ubuntu 24.04（GitHub Actions。push のたびに `docker compose up` からのスモークテストを実行）
+- macOS 13（Apple シリコン）+ Colima
 
 ### ソースコードの取得
 
