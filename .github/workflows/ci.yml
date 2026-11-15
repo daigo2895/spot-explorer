@@ -2,7 +2,8 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # 追加機能のブランチ（feature/extras）も、main と同じ内容を push のたびに確認する
+    branches: [main, 'feature/**']
   pull_request:
 
 # リポジトリの読み取りだけを許可する（書き込みやシークレットは使わない）
