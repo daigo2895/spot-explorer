@@ -33,6 +33,39 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  # 実際の PostGIS（docker-compose.yml と同じイメージ）に対して半径検索の SQL を確認する
+  api-integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      db:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        # -h で TCP 経由にし、初期化用の一時サーバーの段階で healthy にならないようにする
+        options: >-
+          --health-cmd "pg_isready -h 127.0.0.1 -U postgres"
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 20
+    defaults:
+      run:
+        working-directory: api
+    env:
+      DB_HOST: localhost
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24 # Dockerfile（node:24-slim）と揃える
+          cache: npm
+          cache-dependency-path: api/package-lock.json
+      - run: npm ci
+      - run: npm run test:int
+
   web:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
