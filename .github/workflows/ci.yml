@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# リポジトリの読み取りだけを許可する（書き込みやシークレットは使わない）
+permissions:
+  contents: read
+
+# 同じブランチで新しい push があれば、古い実行は止める
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24 # Dockerfile（node:24-slim）と揃える
+          cache: npm
+          cache-dependency-path: api/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+  web:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24 # Dockerfile（node:24-slim）と揃える
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build # 型チェックも含む
+        env:
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:3001
+
+  # 採点者が初めて docker compose up するのと同じ、まっさらな状態から起動して動作を確認する
+  compose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - name: docker compose で起動
+        run: docker compose up --build -d
+      - name: スモークテスト
+        run: ./scripts/smoke-test.sh
+      - name: 失敗時にログを出す
+        if: failure()
+        run: docker compose logs
+      - name: 後片付け
+        if: always()
+        run: docker compose down -v
