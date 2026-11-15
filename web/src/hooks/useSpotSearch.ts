@@ -28,11 +28,23 @@ function canReuse(prev: SearchResult, center: LatLng, radiusKm: number): boolean
   return !truncated && distanceM(prev.center, center) + radiusKm * 1000 <= prev.radiusKm * 1000;
 }
 
+/**
+ * 取得済みの結果を、別の中心・半径で絞り込む（再利用時のみ使う）。
+ * 中心が変わっているため、距離はブラウザ側で再計算する（球面近似）
+ */
 function filterWithin(source: Spot[], center: LatLng, radiusKm: number): Spot[] {
   return source
     .map((s) => ({ ...s, distanceM: Math.round(distanceM(center, s)) }))
     .filter((s) => s.distanceM <= radiusKm * 1000)
     .sort((a, b) => a.distanceM - b.distanceM);
+}
+
+/**
+ * API から取得した直後は、取得時の中心と検索の中心が同じなので、
+ * PostGIS が計算した距離と並び順をそのまま使い、半径で絞るだけにする
+ */
+function withinRadius(items: Spot[], radiusKm: number): Spot[] {
+  return items.filter((s) => s.distanceM <= radiusKm * 1000);
 }
 
 export function useSpotSearch(center: LatLng | null, radiusKm: number): SpotSearchState & { retry: () => void } {
@@ -63,7 +75,7 @@ export function useSpotSearch(center: LatLng | null, radiusKm: number): SpotSear
         const fetchRadius = Math.min(MAX_RADIUS_KM, radiusKm * PREFETCH_FACTOR);
         const result = await api.searchSpots(center, fetchRadius, controller.signal);
         lastResult.current = result;
-        setState({ status: "success", spots: filterWithin(result.items, center, radiusKm), fromCache: false, error: null });
+        setState({ status: "success", spots: withinRadius(result.items, radiusKm), fromCache: false, error: null });
       } catch (e) {
         if (controller.signal.aborted) return;
         setState((s) => ({ ...s, status: "error", error: e instanceof Error ? e.message : "unknown error" }));
