@@ -1,6 +1,8 @@
 services:
   db:
     image: postgis/postgis:16-3.4
+    # PostGIS プロジェクトのイメージは amd64 版のみのため明示する（Apple シリコンではエミュレーションで動く）
+    platform: linux/amd64
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
