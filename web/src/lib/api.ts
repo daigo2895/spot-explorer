@@ -39,6 +39,30 @@ export interface ReverseGeocodeResult {
   cached: boolean;
 }
 
+export interface Bounds {
+  south: number;
+  west: number;
+  north: number;
+  east: number;
+}
+
+/** 地名・住所の検索結果（1件） */
+export interface GeocodeHit {
+  name: string;
+  address: string | null;
+  lat: number;
+  lng: number;
+  /** その場所の範囲（市なら市全体など）。地図のズームに使う */
+  bounds: Bounds | null;
+}
+
+export interface GeocodeSearchResult {
+  query: string;
+  hits: GeocodeHit[];
+  provider: string;
+  cached: boolean;
+}
+
 async function getJson<T>(path: string, params: Record<string, string | number>, signal?: AbortSignal) {
   const url = new URL(`/api${path}`, API_BASE_URL);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, String(v)));
@@ -64,4 +88,6 @@ export const api = {
   summary: (signal?: AbortSignal) => getJson<SpotsSummary>("/spots/summary", {}, signal),
   reverseGeocode: (center: LatLng, signal?: AbortSignal) =>
     getJson<ReverseGeocodeResult>("/geocode/reverse", { lat: center.lat, lng: center.lng }, signal),
+  geocodeSearch: (q: string, signal?: AbortSignal) =>
+    getJson<GeocodeSearchResult>("/geocode/search", { q }, signal),
 };

@@ -8,6 +8,7 @@ import { buildCategoryColors } from "@/lib/categoryColors";
 import type { LatLng } from "@/lib/geo";
 import { AddressBar } from "./AddressBar";
 import { CategoryFilter } from "./CategoryFilter";
+import { PlaceSearch, type MapTarget } from "./PlaceSearch";
 import { RadiusControl } from "./RadiusControl";
 import { SpotList } from "./SpotList";
 import { SpotMap } from "./SpotMap";
@@ -23,6 +24,8 @@ export function SpotExplorer() {
   const [categories, setCategories] = useState<string[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [isMoving, setIsMoving] = useState(false);
+  /** 地名検索・現在地ボタンからの移動指示 */
+  const [target, setTarget] = useState<(MapTarget & { seq: number }) | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -50,6 +53,9 @@ export function SpotExplorer() {
           <p className="mt-1 text-xs text-slate-500">
             地図を動かすと、中心（＋）から半径 {radiusKm} km 以内のスポットを表示します
           </p>
+          <div className="mt-3">
+            <PlaceSearch onNavigate={(t) => setTarget({ ...t, seq: (target?.seq ?? 0) + 1 })} />
+          </div>
           <div className="mt-3">
             <RadiusControl value={radiusKm} onChange={setRadiusKm} />
           </div>
@@ -86,6 +92,7 @@ export function SpotExplorer() {
             setLiveCenter(c);
             setSearchCenter(c);
           }}
+          target={target}
         />
         <AddressBar state={address} center={liveCenter} />
         {(isMoving || search.status === "loading") && (

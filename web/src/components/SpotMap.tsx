@@ -7,6 +7,7 @@ import type { CircleMarker as LeafletCircleMarker, LatLngBoundsExpression } from
 import type { Spot } from "@/lib/api";
 import { categoryColor, type CategoryColorMap } from "@/lib/categoryColors";
 import { formatDistance, type LatLng } from "@/lib/geo";
+import type { MapTarget } from "./PlaceSearch";
 
 interface Props {
   initialCenter: LatLng | null;
@@ -20,6 +21,31 @@ interface Props {
   onSelect: (id: number | null) => void;
   onMove: (center: LatLng) => void;
   onMoveEnd: (center: LatLng) => void;
+  /** 地名検索・現在地ボタンからの移動指示。同じ場所を2回選んでも動くよう、連番つき */
+  target: (MapTarget & { seq: number }) | null;
+}
+
+/** 点に移動するときのズーム。町名が読める程度 */
+const TARGET_ZOOM = 15;
+
+function MapNavigator({ target }: Pick<Props, "target">) {
+  const map = useMap();
+  useEffect(() => {
+    if (!target) return;
+    if (target.bounds) {
+      const b = target.bounds;
+      map.flyToBounds(
+        [
+          [b.south, b.west],
+          [b.north, b.east],
+        ],
+        { maxZoom: TARGET_ZOOM, duration: 0.8 },
+      );
+    } else {
+      map.flyTo([target.center.lat, target.center.lng], TARGET_ZOOM, { duration: 0.8 });
+    }
+  }, [map, target]);
+  return null;
 }
 
 // データがない・取得に失敗した場合の初期表示（東京駅周辺）
@@ -84,7 +110,19 @@ function SpotMarker({
   );
 }
 
-export function SpotMap({ initialCenter, bounds, spots, colors, searchCenter, radiusKm, selectedId, onSelect, onMove, onMoveEnd }: Props) {
+export function SpotMap({
+  initialCenter,
+  bounds,
+  spots,
+  colors,
+  searchCenter,
+  radiusKm,
+  selectedId,
+  onSelect,
+  onMove,
+  onMoveEnd,
+  target,
+}: Props) {
   // 初期表示：スポットが密集している地点 → データ全体の範囲 → 既定の地点 の順に使う
   const initial: { bounds: LatLngBoundsExpression } | { center: [number, number]; zoom: number } = initialCenter
     ? { center: [initialCenter.lat, initialCenter.lng], zoom: 12 }
@@ -100,6 +138,7 @@ export function SpotMap({ initialCenter, bounds, spots, colors, searchCenter, ra
           url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <MapEvents onMove={onMove} onMoveEnd={onMoveEnd} />
+        <MapNavigator target={target} />
         {searchCenter && (
           <Circle
             center={searchCenter}
