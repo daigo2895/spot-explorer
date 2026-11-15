@@ -66,7 +66,7 @@ docker-compose up --build
 2. `api`：マイグレーション（テーブル・インデックス作成）→ シードデータの投入 → API 起動
 3. `web`：Next.js が起動
 
-シードデータは `api/seed/spots.csv`（200件、列：`name, category, lat, long, address`）です。シード処理は何度実行しても同じ結果になるため（後述）、再起動してもデータは重複しません。
+シードデータは、提供された CSV を `api/seed/spots.csv` として配置したものです（200件、列：`name, category, lat, long, address`）。シード処理は何度実行しても同じ結果になるため（後述）、再起動してもデータは重複しません。
 
 ### API
 
