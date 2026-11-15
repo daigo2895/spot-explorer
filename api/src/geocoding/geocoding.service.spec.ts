@@ -1,12 +1,17 @@
 import { ServiceUnavailableException } from '@nestjs/common';
 import { GeocodingService } from './geocoding.service.js';
-import type { ReverseGeocoder } from './providers/reverse-geocoder.js';
+import type { GeocodeHit, Geocoder } from './providers/geocoder.js';
 
-function createGeocoder(impl: ReverseGeocoder['reverse']) {
-  return { name: 'fake', reverse: vi.fn(impl) } satisfies ReverseGeocoder;
+function createGeocoder(
+  reverse: Geocoder['reverse'] = async () => null,
+  search: Geocoder['search'] = async () => [],
+) {
+  return { name: 'fake', reverse: vi.fn(reverse), search: vi.fn(search) } satisfies Geocoder;
 }
 
-describe('GeocodingService', () => {
+const HIT: GeocodeHit = { name: '浅草寺', address: '東京都台東区浅草', lat: 35.71, lng: 139.79, bounds: null };
+
+describe('GeocodingService.reverse', () => {
   it('約11m以内の座標は同じキャッシュを使い、外部APIを1回しか呼ばない', async () => {
     const geocoder = createGeocoder(async () => '東京都千代田区丸の内');
     const service = new GeocodingService(geocoder);
@@ -43,5 +48,39 @@ describe('GeocodingService', () => {
       ServiceUnavailableException,
     );
     expect(geocoder.reverse).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('GeocodingService.search', () => {
+  it('空白の違いだけの検索語は同じキャッシュを使い、外部APIを1回しか呼ばない', async () => {
+    const geocoder = createGeocoder(undefined, async () => [HIT]);
+    const service = new GeocodingService(geocoder);
+
+    const first = await service.search(' 浅草  寺 ');
+    const second = await service.search('浅草 寺');
+
+    expect(first).toEqual({ query: '浅草 寺', hits: [HIT], provider: 'fake', cached: false });
+    expect(second.cached).toBe(true);
+    expect(geocoder.search).toHaveBeenCalledTimes(1);
+    expect(geocoder.search).toHaveBeenCalledWith('浅草 寺', 5);
+  });
+
+  it('空の検索語は外部APIを呼ばず、空の結果を返す', async () => {
+    const geocoder = createGeocoder();
+    const service = new GeocodingService(geocoder);
+
+    const result = await service.search('   ');
+
+    expect(result.hits).toEqual([]);
+    expect(geocoder.search).not.toHaveBeenCalled();
+  });
+
+  it('外部APIのエラーは503を返す', async () => {
+    const geocoder = createGeocoder(undefined, async () => {
+      throw new Error('down');
+    });
+    const service = new GeocodingService(geocoder);
+
+    await expect(service.search('浅草')).rejects.toBeInstanceOf(ServiceUnavailableException);
   });
 });
