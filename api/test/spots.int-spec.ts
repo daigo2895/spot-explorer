@@ -70,11 +70,11 @@ async function ensureTestDatabase() {
   }
 }
 
-async function insertSpot(name: string, p: { lat: number; lng: number }) {
+async function insertSpot(name: string, p: { lat: number; lng: number }, category: string | null = null) {
   await dataSource.query(
-    `INSERT INTO spots (source_id, name, location)
-     VALUES ($1, $1, ST_SetSRID(ST_MakePoint($2, $3), 4326)::geography)`,
-    [name, p.lng, p.lat],
+    `INSERT INTO spots (source_id, name, category, location)
+     VALUES ($1, $1, $2, ST_SetSRID(ST_MakePoint($3, $4), 4326)::geography)`,
+    [name, category, p.lng, p.lat],
   );
 }
 
@@ -159,6 +159,39 @@ describe('SpotsService.search（PostGIS）', () => {
     } finally {
       await runner.release();
     }
+  });
+});
+
+describe('SpotsService.search（カテゴリ）', () => {
+  beforeEach(async () => {
+    await insertSpot('寺A', north(TOKYO, 300), '寺院');
+    await insertSpot('神社B', north(TOKYO, 600), '神社');
+    await insertSpot('公園C', north(TOKYO, 900), '公園');
+    await insertSpot('分類なしD', north(TOKYO, 1200), null);
+    await insertSpot('遠い寺E', north(TOKYO, 5000), '寺院');
+  });
+
+  it('指定したカテゴリだけを、半径内かつ近い順で返す', async () => {
+    const result = await service.search({ ...TOKYO, radiusKm: 2, limit: 500, categories: ['寺院', '神社'] });
+
+    expect(result.items.map((s) => s.name)).toEqual(['寺A', '神社B']);
+    expect(result.total).toBe(2);
+  });
+
+  it('カテゴリを指定しなければ全カテゴリ（未分類も含む）を返す', async () => {
+    const result = await service.search({ ...TOKYO, radiusKm: 2, limit: 500 });
+
+    expect(result.total).toBe(4);
+  });
+
+  it('summary はカテゴリごとの件数を多い順で返す', async () => {
+    const { categories } = await service.summary();
+
+    expect(categories).toEqual([
+      { name: '寺院', count: 2 },
+      { name: '公園', count: 1 },
+      { name: '神社', count: 1 },
+    ]);
   });
 });
 

@@ -29,6 +29,8 @@ export interface SpotsSummary {
   bounds: { south: number; west: number; north: number; east: number } | null;
   /** 半径10km以内に最も多くのスポットがある地点。地図の初期表示の中心に使う */
   initialCenter: { lat: number; lng: number } | null;
+  /** カテゴリごとの件数（多い順）。画面の絞り込みと凡例に使う */
+  categories: { name: string; count: number }[];
 }
 
 interface RawSpot {
@@ -48,7 +50,7 @@ export class SpotsService {
     @InjectRepository(Spot) private readonly spots: Repository<Spot>,
   ) {}
 
-  async search({ lat, lng, radiusKm, limit }: SearchSpotsQuery): Promise<SearchResult> {
+  async search({ lat, lng, radiusKm, limit, categories }: SearchSpotsQuery): Promise<SearchResult> {
     const radiusM = radiusKm * 1000;
     const center = 'ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography';
 
@@ -56,6 +58,11 @@ export class SpotsService {
     const qb = this.spots
       .createQueryBuilder('s')
       .where(`ST_DWithin(s.location, ${center}, :radiusM)`, { lat, lng, radiusM });
+
+    // カテゴリは半径で絞った後の少数行に対する条件なので、専用のインデックスは張っていない
+    if (categories && categories.length > 0) {
+      qb.andWhere('s.category IN (:...categories)', { categories });
+    }
 
     const [rows, total] = await Promise.all([
       qb
@@ -104,7 +111,17 @@ export class SpotsService {
              ST_XMax(ST_Extent(location::geometry)) AS east
       FROM spots
     `);
-    if (!row || row.south === null) return { count: 0, bounds: null, initialCenter: null };
+    if (!row || row.south === null) {
+      return { count: 0, bounds: null, initialCenter: null, categories: [] };
+    }
+
+    const categories = await this.spots.query<{ name: string; count: string }[]>(`
+      SELECT category AS name, count(*) AS count
+      FROM spots
+      WHERE category IS NOT NULL
+      GROUP BY category
+      ORDER BY count(*) DESC, category
+    `);
 
     // データは全国に散らばっているため、全体を表示すると半径数kmの円が見えないほど小さくなる。
     // そこで「周辺のスポットが最も多い地点」を初期表示の中心にする（件数が少ないので自己結合で十分）
@@ -121,6 +138,7 @@ export class SpotsService {
       count: Number(row.count),
       bounds: { south: row.south, west: row.west!, north: row.north!, east: row.east! },
       initialCenter: dense ? { lat: Number(dense.lat), lng: Number(dense.lng) } : null,
+      categories: categories.map((c) => ({ name: c.name, count: Number(c.count) })),
     };
   }
 }
