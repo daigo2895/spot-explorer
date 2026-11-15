@@ -47,6 +47,7 @@ cp .env.example .env
 |---|---|
 | `GOOGLE_MAPS_API_KEY` | 設定すると逆ジオコーディングに Google Geocoding API を使います。未設定の場合は Nominatim（OpenStreetMap）を使います |
 | `NOMINATIM_USER_AGENT` | Nominatim に送る User-Agent。利用ポリシーでアプリを識別できる値が求められています |
+| `DB_USER` / `DB_PASSWORD` / `DB_NAME` | DB の接続情報。未設定の場合は `postgres` / `postgres` / `spots`（ローカル用の既定値）。DB のパスワードは初回起動時（ボリューム作成時）に反映されます |
 
 APIキーなどの機密情報はリポジトリに含めず、`.env`（Git 管理外）で管理します。
 

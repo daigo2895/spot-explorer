@@ -4,15 +4,16 @@ services:
     # PostGIS プロジェクトのイメージは amd64 版のみのため明示する（Apple シリコンではエミュレーションで動く）
     platform: linux/amd64
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: spots
+      # 接続情報は .env で上書きできる（未設定ならローカル用の既定値）
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-spots}
     ports:
       - "5432:5432"
     volumes:
       - db-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d spots"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${DB_USER:-postgres} -d ${DB_NAME:-spots}"]
       interval: 3s
       timeout: 3s
       retries: 20
@@ -25,9 +26,9 @@ services:
     environment:
       DB_HOST: db
       DB_PORT: 5432
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      DB_NAME: spots
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_NAME: ${DB_NAME:-spots}
       PORT: 3001
       CORS_ORIGIN: http://localhost:3000
       SEED_FILE: seed/spots.csv
