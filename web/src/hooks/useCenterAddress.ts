@@ -61,7 +61,8 @@ export function useCenterAddress(center: LatLng | null): CenterAddressState {
         // 古いリクエストの結果で新しい表示を上書きしない
         if (requestId === latestRequestId.current) setState({ address, status: "success" });
       } catch {
-        if (requestId === latestRequestId.current) setState((s) => ({ ...s, status: "error" }));
+        // 前の地点の住所を残すと、失敗に気づけず別の場所の住所を見てしまうため消す
+        if (requestId === latestRequestId.current) setState({ address: null, status: "error" });
       }
     };
 

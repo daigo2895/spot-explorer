@@ -3,10 +3,20 @@ import type { LatLng } from "@/lib/geo";
 
 export function AddressBar({ state, center }: { state: CenterAddressState; center: LatLng | null }) {
   let text: string;
-  if (state.status === "error" && !state.address) text = "住所を取得できませんでした";
-  else if (state.address) text = state.address;
-  else if (state.status === "success") text = "この地点の住所は見つかりませんでした";
-  else text = "住所を取得中…";
+  let textClass = "";
+  if (state.status === "error") {
+    text = "住所を取得できませんでした（地図を動かすと再試行します）";
+    textClass = "text-red-600";
+  } else if (state.address) {
+    text = state.address;
+    if (state.status === "loading") textClass = "text-slate-500";
+  } else if (state.status === "success") {
+    text = "この地点の住所は見つかりませんでした";
+    textClass = "text-slate-500";
+  } else {
+    text = "住所を取得中…";
+    textClass = "text-slate-500";
+  }
 
   return (
     <div className="pointer-events-none absolute top-3 left-1/2 z-[1000] w-[min(92%,32rem)] -translate-x-1/2">
@@ -22,9 +32,7 @@ export function AddressBar({ state, center }: { state: CenterAddressState; cente
             </span>
           )}
         </div>
-        <p className={`truncate text-sm font-medium ${state.status === "loading" ? "text-slate-500" : ""}`}>
-          {text}
-        </p>
+        <p className={`truncate text-sm font-medium ${textClass}`}>{text}</p>
       </div>
     </div>
   );
