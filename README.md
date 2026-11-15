@@ -18,8 +18,16 @@
 ### 必要なもの
 
 - Docker Desktop（Docker Compose v2.24 以降）
+- Git
 
 Apple シリコンの Mac では、DB のイメージ（amd64 版のみ）をエミュレーションで動かすため、初回起動に時間がかかることがあります。
+
+### ソースコードの取得
+
+```bash
+git clone https://github.com/daigo2895/spot-explorer.git
+cd spot-explorer
+```
 
 ### 環境変数（任意）
 
